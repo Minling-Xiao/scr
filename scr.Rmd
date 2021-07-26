@@ -1,0 +1,100 @@
+---
+title: "SCR.Q"
+output: html_document
+---
+
+```{r}
+library(Rlab)
+load("test-data.Rdata")
+```
+
+##Q1
+```{r}
+plot(test.data$traps)
+```
+##Q2
+```{r}
+test.data$bin.capt
+```
+##Q3
+```{r}
+fun = function(d){g0*exp(-d^2/(2*sigma^2))}
+g0 = plogis(fit$par[2])
+sigma = exp(fit$par[3])
+d = 0:1000
+plot(fun(d), xlab = "d", ylab = "g(d)", main = "Detection function estimated by the model")
+```
+##Q5
+```{r}
+cap_hist = function(region_area,D,detector_location,g0,sigma){
+  
+  centre_location_num = D*region_area
+  centre_location=matrix(runif(centre_location_num*2,min = -500,max = 900),ncol=2)
+  colnames(centre_location) = c("x", "y")
+  
+  cap_hist = matrix(rep(NA,nrow(centre_location)*nrow(detector_location)),nrow = nrow(centre_location))
+  
+  for (i in 1:nrow(centre_location)) {
+    for (j in 1:nrow(detector_location)) {
+      delta_x = centre_location[i,1] - detector_location[j,1]
+      delta_y = centre_location[i,2] - detector_location[j,2]
+      d = sqrt(delta_x^2 + delta_y^2)
+      g_d = g0 * exp(-d^2/(2*sigma^2))
+      cap_hist[i,j] = rbern(1,g_d)
+    }
+  }
+  
+  for (u in nrow(cap_hist):1){
+    if (all(cap_hist[u,] == 0))
+      cap_hist = cap_hist[-u,]
+  }
+  cap_hist
+}
+```
+
+```{r}
+D = 0.75
+sigma = 75
+g0 = 0.9
+region_area = (900-(-500))^2/10000
+detector_location = cbind(rep(c(100,200,300),each=3),rep(c(100,200,300),3))
+colnames(detector_location) = c("x","y")
+```
+
+```{r}
+bin_cap = cap_hist(region_area,D,detector_location,g0,sigma)
+bin_cap
+```
+##6
+```{r}
+par.start = c(log(0.1), qlogis(0.5), log(50))
+fit = optim(par.start, scr.nll, capt = bin_cap, traps = test.data$traps, mask = test.data$mask)
+
+## D:
+exp(fit$par[1])
+## g0:
+plogis(fit$par[2])
+## sigma:
+exp(fit$par[3])
+```
+##Q8
+```{r}
+estimates = data.frame(D = rep(NA,100), g0 = rep(NA,100), sigma = rep(NA,100))
+
+for (i in 1:100){
+  
+  bin_cap = cap_hist(region_area,D,detector_location,g0,sigma)
+  par.start = c(log(0.1), qlogis(0.5), log(50))
+  fit = optim(par.start, scr.nll, capt = bin_cap, traps = test.data$traps, mask = test.data$mask)
+  
+  estimates$D[i] = exp(fit$par[1])
+  estimates$g0[i] = plogis(fit$par[2])
+  estimates$sigma[i] = exp(fit$par[3])
+  
+}
+
+mean(estimates$D)
+mean(estimates$g0)
+mean(estimates$sigma)
+```
+
